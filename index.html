@@ -1,0 +1,504 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Student Check-In System</title>
+  <style>
+    :root {
+      --bg: #eef3f8;
+      --card: #ffffff;
+      --primary: #2563eb;
+      --primary-dark: #1d4ed8;
+      --text: #1f2937;
+      --border: #d6deea;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(180deg, #f7f9fc 0%, var(--bg) 100%);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 16px;
+    }
+
+    .app {
+      width: min(840px, 100%);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      box-shadow: 0 14px 40px rgba(31, 41, 55, 0.08);
+      padding: 28px;
+    }
+
+    h1 {
+      margin: 0 0 20px;
+      text-align: center;
+      font-size: clamp(1.55rem, 2.2vw, 2rem);
+      color: #0f172a;
+    }
+
+    form {
+      display: grid;
+      gap: 14px;
+      max-width: 420px;
+      margin: 0 auto 26px;
+    }
+
+    .form-logo {
+      display: block;
+      width: 210px;
+      max-width: 100%;
+      margin: 0 auto 2px;
+      height: auto;
+    }
+
+    label {
+      font-weight: 600;
+      color: #334155;
+    }
+
+    input,
+    select,
+    button {
+      width: 100%;
+      font: inherit;
+      border-radius: 10px;
+    }
+
+    input,
+    select {
+      height: 44px;
+      border: 1px solid var(--border);
+      padding: 0 12px;
+      color: var(--text);
+      background: #fff;
+    }
+
+    input:focus,
+    select:focus,
+    button:focus {
+      outline: 2px solid #93c5fd;
+      outline-offset: 1px;
+    }
+
+    button {
+      height: 44px;
+      border: none;
+      background: var(--primary);
+      color: white;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+
+    button:hover {
+      background: var(--primary-dark);
+    }
+
+    .table-action-btn {
+      width: auto;
+      height: 32px;
+      padding: 0 10px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      font-weight: 600;
+      background: #0f766e;
+    }
+
+    .table-action-btn:hover {
+      background: #115e59;
+    }
+
+    .returned-time {
+      color: #0f172a;
+      font-weight: 600;
+    }
+
+    .log-title {
+      margin: 0 0 10px;
+      font-size: 1.15rem;
+      color: #0f172a;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 620px;
+    }
+
+    th,
+    td {
+      text-align: left;
+      padding: 12px 14px;
+      border-bottom: 1px solid #e5eaf2;
+      color: #334155;
+      white-space: nowrap;
+    }
+
+    thead th {
+      background: #f1f5f9;
+      font-size: 0.95rem;
+      color: #1e293b;
+    }
+
+    tbody tr:last-child td {
+      border-bottom: none;
+    }
+
+    @media (max-width: 900px) {
+      .app {
+        width: min(760px, 100%);
+        padding: 22px;
+      }
+    }
+
+    @media (max-width: 640px) {
+      body {
+        padding: 20px 12px;
+      }
+
+      .app {
+        padding: 18px;
+      }
+
+      form {
+        max-width: 100%;
+      }
+
+      .form-logo {
+        width: 180px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main class="app">
+    <h1>Student Check-In System</h1>
+
+    <form id="checkinForm" novalidate>
+      <img class="form-logo" src="assets/onecampus-logo.png" alt="OneCampus logo" />
+
+      <label for="studentId">Student ID</label>
+      <input id="studentId" name="studentId" type="text" inputmode="numeric" placeholder="Enter student ID" autocomplete="off" required />
+
+      <label for="location">Location</label>
+      <select id="location" name="location" required>
+        <option value="" selected disabled>Select location</option>
+        <option>Classroom</option>
+        <option>Bathroom</option>
+        <option>Nurse</option>
+        <option>Office</option>
+        <option>Library</option>
+        <option>Counselor</option>
+      </select>
+
+      <button type="submit">Submit</button>
+    </form>
+
+    <h2 class="log-title">Activity Log</h2>
+    <div class="table-wrap">
+      <table aria-label="Activity Log">
+        <thead>
+          <tr>
+            <th>Date &amp; Time</th>
+            <th>Student ID</th>
+            <th>Location</th>
+            <th>Timer</th>
+            <th>Time Returned</th>
+          </tr>
+        </thead>
+        <tbody id="logBody"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    const STORAGE_KEY = 'onecampusActivityLog';
+    const LEGACY_KEYS = ['onecampusLog', 'activityLog'];
+    const form = document.getElementById('checkinForm');
+    const logBody = document.getElementById('logBody');
+    const studentIdInput = document.getElementById('studentId');
+
+    const scannerState = {
+      buffer: '',
+      lastKeyTime: 0,
+      rapidInputDetected: false
+    };
+
+    function formatElapsed(totalSeconds) {
+      const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+      const minutes = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+      const seconds = String(totalSeconds % 60).padStart(2, '0');
+      return `${hours}:${minutes}:${seconds}`;
+    }
+
+    function normalizeStudentId(value) {
+      return String(value || '')
+        .trim()
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, '');
+    }
+
+    function readEntriesFromKey(key) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) {
+          return [];
+        }
+        const parsed = JSON.parse(raw);
+        if (!Array.isArray(parsed)) {
+          return [];
+        }
+        return parsed
+          .filter((entry) => entry && typeof entry === 'object')
+          .map((entry) => ({
+            dateTime: entry.dateTime || '',
+            studentId: String(entry.studentId || ''),
+            studentIdNormalized: normalizeStudentId(entry.studentIdNormalized || entry.studentId),
+            location: entry.location || '',
+            startMs: Number(entry.startMs) || Date.now(),
+            returnedAtMs: Number(entry.returnedAtMs) || 0,
+            stoppedSeconds: Number(entry.stoppedSeconds) || 0
+          }));
+      } catch {
+        return [];
+      }
+    }
+
+    function loadLogEntries() {
+      const primaryEntries = readEntriesFromKey(STORAGE_KEY);
+      if (primaryEntries.length > 0) {
+        return primaryEntries;
+      }
+
+      for (const key of LEGACY_KEYS) {
+        const legacyEntries = readEntriesFromKey(key);
+        if (legacyEntries.length > 0) {
+          saveLogEntries(legacyEntries);
+          return legacyEntries;
+        }
+      }
+
+      return [];
+    }
+
+    function saveLogEntries(entries) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    }
+
+    function findEntryIndex(entries, targetEntry) {
+      return entries.findIndex((entry) =>
+        Number(entry.startMs) === Number(targetEntry.startMs) &&
+        normalizeStudentId(entry.studentIdNormalized || entry.studentId) === normalizeStudentId(targetEntry.studentIdNormalized || targetEntry.studentId) &&
+        String(entry.location || '') === String(targetEntry.location || '') &&
+        String(entry.dateTime || '') === String(targetEntry.dateTime || '')
+      );
+    }
+
+    function persistReturnTime(targetEntry, returnedAtMs, stoppedSeconds) {
+      const entries = loadLogEntries();
+      const index = findEntryIndex(entries, targetEntry);
+      if (index === -1) {
+        return;
+      }
+
+      entries[index] = {
+        ...entries[index],
+        returnedAtMs,
+        stoppedSeconds
+      };
+      saveLogEntries(entries);
+    }
+
+    function updateTimers() {
+      const timerCells = logBody.querySelectorAll('[data-start]');
+      const nowMs = Date.now();
+
+      timerCells.forEach((cell) => {
+        if (cell.getAttribute('data-stopped') === 'true') {
+          const stoppedSeconds = Number(cell.getAttribute('data-stopped-seconds')) || 0;
+          cell.textContent = formatElapsed(stoppedSeconds);
+          return;
+        }
+        const startMs = Number(cell.getAttribute('data-start'));
+        const elapsed = Math.max(0, Math.floor((nowMs - startMs) / 1000));
+        cell.textContent = formatElapsed(elapsed);
+      });
+    }
+
+    function appendLogRow(entry) {
+      const row = document.createElement('tr');
+      const dateTimeCell = document.createElement('td');
+      const studentCell = document.createElement('td');
+      const locationCell = document.createElement('td');
+      const timerCell = document.createElement('td');
+      const returnedCell = document.createElement('td');
+
+      dateTimeCell.textContent = entry.dateTime;
+      studentCell.textContent = entry.studentId;
+      locationCell.textContent = entry.location;
+      timerCell.setAttribute('data-start', String(entry.startMs));
+      timerCell.textContent = '00:00:00';
+      if (entry.returnedAtMs > 0) {
+        const stoppedSeconds = entry.stoppedSeconds > 0
+          ? entry.stoppedSeconds
+          : Math.max(0, Math.floor((entry.returnedAtMs - entry.startMs) / 1000));
+        timerCell.setAttribute('data-stopped', 'true');
+        timerCell.setAttribute('data-stopped-seconds', String(stoppedSeconds));
+        timerCell.textContent = formatElapsed(stoppedSeconds);
+        returnedCell.textContent = new Date(entry.returnedAtMs).toLocaleString();
+        returnedCell.classList.add('returned-time');
+      } else {
+        const stopButton = document.createElement('button');
+        timerCell.setAttribute('data-stopped', 'false');
+        stopButton.type = 'button';
+        stopButton.className = 'table-action-btn';
+        stopButton.textContent = 'Mark Returned';
+        stopButton.addEventListener('click', () => {
+          if (timerCell.getAttribute('data-stopped') === 'true') {
+            return;
+          }
+          const nowMs = Date.now();
+          const startMs = Number(timerCell.getAttribute('data-start'));
+          const elapsed = Math.max(0, Math.floor((nowMs - startMs) / 1000));
+          timerCell.setAttribute('data-stopped', 'true');
+          timerCell.setAttribute('data-stopped-seconds', String(elapsed));
+          timerCell.textContent = formatElapsed(elapsed);
+          persistReturnTime(entry, nowMs, elapsed);
+
+          returnedCell.textContent = new Date(nowMs).toLocaleString();
+          returnedCell.classList.add('returned-time');
+        });
+        returnedCell.append(stopButton);
+      }
+
+      row.append(dateTimeCell, studentCell, locationCell, timerCell, returnedCell);
+      logBody.prepend(row);
+    }
+
+    function hydrateLogFromStorage() {
+      const entries = loadLogEntries();
+      entries.forEach((entry) => appendLogRow(entry));
+      updateTimers();
+    }
+
+    function resetScannerBuffer() {
+      scannerState.buffer = '';
+      scannerState.lastKeyTime = 0;
+      scannerState.rapidInputDetected = false;
+    }
+
+    function isTypingField(element) {
+      if (!element) {
+        return false;
+      }
+
+      if (element === studentIdInput) {
+        return false;
+      }
+
+      const tag = element.tagName;
+      return tag === 'INPUT' || tag === 'TEXTAREA' || element.isContentEditable;
+    }
+
+    window.addEventListener('keydown', (event) => {
+      if (event.ctrlKey || event.altKey || event.metaKey) {
+        return;
+      }
+
+      if (isTypingField(document.activeElement)) {
+        resetScannerBuffer();
+        return;
+      }
+
+      if (event.key === 'Enter') {
+        if (scannerState.rapidInputDetected && scannerState.buffer.length > 0) {
+          studentIdInput.value = scannerState.buffer;
+          studentIdInput.focus();
+          event.preventDefault();
+        }
+        resetScannerBuffer();
+        return;
+      }
+
+      if (event.key.length !== 1) {
+        return;
+      }
+
+      const nowMs = Date.now();
+      const elapsed = nowMs - scannerState.lastKeyTime;
+      scannerState.lastKeyTime = nowMs;
+
+      if (elapsed > 120) {
+        scannerState.buffer = '';
+        scannerState.rapidInputDetected = false;
+      } else if (elapsed < 45 && scannerState.buffer.length >= 1) {
+        scannerState.rapidInputDetected = true;
+      }
+
+      scannerState.buffer += event.key;
+
+      if (scannerState.rapidInputDetected) {
+        studentIdInput.value = scannerState.buffer;
+      }
+    });
+
+    form.addEventListener('submit', (event) => {
+      event.preventDefault();
+
+      const studentId = studentIdInput.value.trim();
+      const location = document.getElementById('location').value;
+
+      if (!studentId || !location) {
+        return;
+      }
+
+      const now = new Date();
+      const entry = {
+        dateTime: now.toLocaleString([], {
+          year: 'numeric',
+          month: '2-digit',
+          day: '2-digit',
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        }),
+        studentId,
+        studentIdNormalized: normalizeStudentId(studentId),
+        location,
+        startMs: now.getTime(),
+        returnedAtMs: 0,
+        stoppedSeconds: 0
+      };
+
+      const entries = loadLogEntries();
+      entries.unshift(entry);
+      saveLogEntries(entries);
+
+      appendLogRow(entry);
+      form.reset();
+      studentIdInput.focus();
+      updateTimers();
+    });
+
+    hydrateLogFromStorage();
+    studentIdInput.focus();
+    setInterval(updateTimers, 1000);
+  </script>
+</body>
+</html>
