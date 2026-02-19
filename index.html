@@ -124,6 +124,18 @@
       border-radius: 10px;
     }
 
+    .log-reset-wrap {
+      margin-top: 12px;
+      display: flex;
+      justify-content: flex-end;
+    }
+
+    .log-reset-btn {
+      width: auto;
+      min-width: 190px;
+      padding: 0 16px;
+    }
+
     table {
       width: 100%;
       border-collapse: collapse;
@@ -203,6 +215,9 @@
         <tbody id="resultsBody"></tbody>
       </table>
     </div>
+    <div class="log-reset-wrap">
+      <button id="resetLogBtn" class="log-reset-btn" type="button">Activity Log Reset</button>
+    </div>
   </main>
 
   <script>
@@ -212,6 +227,8 @@
     const lookupId = document.getElementById('lookupId');
     const resultsBody = document.getElementById('resultsBody');
     const statusMessage = document.getElementById('statusMessage');
+    const resetLogBtn = document.getElementById('resetLogBtn');
+    const displayedEntryKeys = new Set();
 
     function formatElapsed(totalSeconds) {
       const hours = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
@@ -276,12 +293,26 @@
 
     function clearResults() {
       resultsBody.textContent = '';
+      displayedEntryKeys.clear();
+    }
+
+    function getEntryKey(entry) {
+      return [
+        entry.dateTime || '',
+        normalizeStudentId(entry.studentIdNormalized || entry.studentId),
+        entry.location || '',
+        Number(entry.startMs) || 0
+      ].join('|');
     }
 
     function renderResults(entries) {
-      clearResults();
-
       entries.forEach((entry) => {
+        const entryKey = getEntryKey(entry);
+        if (displayedEntryKeys.has(entryKey)) {
+          return;
+        }
+        displayedEntryKeys.add(entryKey);
+
         const row = document.createElement('tr');
         const dateTimeCell = document.createElement('td');
         const studentCell = document.createElement('td');
@@ -309,7 +340,7 @@
         }
 
         row.append(dateTimeCell, studentCell, locationCell, timerCell, returnedCell);
-        resultsBody.append(row);
+        resultsBody.prepend(row);
       });
     }
 
@@ -335,7 +366,6 @@
       const normalizedLookupId = normalizeStudentId(studentId);
 
       if (!normalizedLookupId) {
-        clearResults();
         statusMessage.textContent = 'student ID has not checked in';
         return;
       }
@@ -346,7 +376,6 @@
       );
 
       if (matches.length === 0) {
-        clearResults();
         statusMessage.textContent = 'student ID has not checked in';
         return;
       }
@@ -354,6 +383,11 @@
       statusMessage.textContent = '';
       renderResults(matches);
       updateTimers();
+    });
+
+    resetLogBtn.addEventListener('click', () => {
+      clearResults();
+      statusMessage.textContent = '';
     });
 
     lookupId.focus();
